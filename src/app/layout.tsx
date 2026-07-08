@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
 import { headers, cookies } from "next/headers";
-import { detectLocale, detectLocaleFromCountry } from "@/lib/i18n";
+import { detectLocale } from "@/lib/i18n";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import type { Locale } from "@/lib/i18n";
 import "./globals.css";
@@ -42,22 +42,14 @@ export default function RootLayout({
   const c = cookies();
   const acceptLanguage = h.get("accept-language");
   const cookieLocale = c.get("NEXT_LOCALE")?.value ?? null;
-  const countryHeader = h.get("x-country") ?? h.get("x-nf-country") ?? null;
-
   const locale: Locale = detectLocale(acceptLanguage, cookieLocale);
-  const countryLocale: Locale | null = detectLocaleFromCountry(countryHeader);
 
   return (
     <html lang={locale} className="scroll-smooth">
       <body
         className={`${ibmSans.variable} ${ibmMono.variable} font-sans antialiased`}
       >
-        <LocaleProvider
-          initialLocale={locale}
-          countryLocale={countryLocale}
-        >
-          {children}
-        </LocaleProvider>
+        <LocaleProvider initialLocale={locale}>{children}</LocaleProvider>
       </body>
     </html>
   );

@@ -21,17 +21,34 @@ interface LocaleContextValue {
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
 
+function jsonp(url: string): Promise<Record<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const cb = `_jp_${Date.now()}`;
+    (window as unknown as Record<string, unknown>)[cb] = (data: unknown) => {
+      delete (window as unknown as Record<string, unknown>)[cb];
+      resolve(data as Record<string, unknown>);
+    };
+    const s = document.createElement("script");
+    s.src = `${url}${url.includes("?") ? "&" : "?"}callback=${cb}`;
+    s.onerror = () => {
+      delete (window as unknown as Record<string, unknown>)[cb];
+      reject(new Error("JSONP failed"));
+    };
+    document.head.appendChild(s);
+  });
+}
+
 export function LocaleProvider({
   initialLocale,
-  countryLocale,
   children,
 }: {
   initialLocale: Locale;
-  countryLocale: Locale | null;
   children: ReactNode;
 }) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const ranRef = useRef(false);
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
 
   useEffect(() => {
     if (ranRef.current) return;
@@ -42,24 +59,24 @@ export function LocaleProvider({
     );
     if (existing) return;
 
-    if (countryLocale && countryLocale !== locale) {
-      setLocaleState(countryLocale);
-      document.cookie = `${COOKIE_NAME}=${countryLocale}; path=/; max-age=31536000; SameSite=Lax`;
-      return;
-    }
+    const setFromCountry = (code: string | null) => {
+      const fromCountry = detectLocaleFromCountry(code);
+      if (fromCountry && fromCountry !== localeRef.current) {
+        setLocaleState(fromCountry);
+        document.cookie = `${COOKIE_NAME}=${fromCountry}; path=/; max-age=31536000; SameSite=Lax`;
+      }
+    };
 
     fetch("https://ipinfo.io/json")
       .then((r) => r.json())
-      .then((data) => {
-        const fromCountry = detectLocaleFromCountry(
-          (data as { country?: string }).country ?? null
-        );
-        if (fromCountry && fromCountry !== locale) {
-          setLocaleState(fromCountry);
-          document.cookie = `${COOKIE_NAME}=${fromCountry}; path=/; max-age=31536000; SameSite=Lax`;
-        }
-      })
-      .catch(() => {});
+      .then((data) => setFromCountry((data as { country?: string }).country ?? null))
+      .catch(() =>
+        jsonp("https://ip-api.com/json/?fields=countryCode")
+          .then((data) =>
+            setFromCountry((data as { countryCode?: string }).countryCode ?? null)
+          )
+          .catch(() => {})
+      );
   }, []);
 
   const setLocale = useCallback((l: Locale) => {
