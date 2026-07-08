@@ -111,7 +111,6 @@ const countryToLocale: Record<string, Locale> = {
   CR: "es",
   PA: "es",
   UY: "es",
-  GQ: "es",
   // Portuguese
   PT: "pt",
   BR: "pt",

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Sans, IBM_Plex_Mono } from "next/font/google";
-import { headers, cookies } from "next/headers";
-import { detectLocale } from "@/lib/i18n";
+import { headers } from "next/headers";
+import { locales, defaultLocale } from "@/lib/i18n";
 import { LocaleProvider } from "@/components/LocaleProvider";
 import type { Locale } from "@/lib/i18n";
 import "./globals.css";
@@ -39,10 +39,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const h = headers();
-  const c = cookies();
+
+  // 1. x-detected-locale header set by Netlify Edge Function (geo-IP + cookie override)
+  const edgeLocale = h.get("x-detected-locale");
+
+  // 2. Fall back to Accept-Language if edge function is bypassed (local dev etc.)
   const acceptLanguage = h.get("accept-language");
-  const cookieLocale = c.get("NEXT_LOCALE")?.value ?? null;
-  const locale: Locale = detectLocale(acceptLanguage, cookieLocale);
+
+  let locale: Locale = defaultLocale;
+  if (edgeLocale && (locales as readonly string[]).includes(edgeLocale)) {
+    locale = edgeLocale as Locale;
+  } else if (acceptLanguage) {
+    const preferred = acceptLanguage
+      .split(",")
+      .map((s) => s.split(";")[0].trim().split("-")[0])
+      .find((l) => (locales as readonly string[]).includes(l));
+    if (preferred) locale = preferred as Locale;
+  }
 
   return (
     <html lang={locale} className="scroll-smooth">
